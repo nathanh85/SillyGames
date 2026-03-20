@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>BeastMan RPG</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #111; color: #eee; font-family: 'Courier New', monospace; overflow: hidden; }
+  #game { display: flex; flex-direction: column; height: 100vh; }
+
+  /* MAP VIEW */
+  #map-view { display: flex; flex-direction: column; flex: 1; }
+  #hud { background: #1a1a2e; padding: 8px 16px; display: flex; gap: 24px; align-items: center; border-bottom: 2px solid #444; }
+  #hud .stat { display: flex; flex-direction: column; font-size: 12px; }
+  #hud .stat span:first-child { color: #aaa; font-size: 10px; }
+  #hud .stat span:last-child { color: #fff; font-weight: bold; }
+  #hp-bar-wrap { flex: 1; }
+  #hp-bar-bg { background: #333; height: 16px; border-radius: 8px; overflow: hidden; }
+  #hp-bar { background: #22c55e; height: 100%; transition: width 0.3s; }
+  #canvas-wrap { flex: 1; display: flex; justify-content: center; align-items: center; background: #0a0a0a; }
+  canvas { image-rendering: pixelated; }
+  #powers-hud { background: #0d0d1f; padding: 6px 16px; font-size: 11px; color: #a78bfa; border-top: 1px solid #333; min-height: 28px; }
+
+  /* COMBAT VIEW */
+  #combat-view { display: none; flex-direction: column; height: 100vh; background: #0a0a14; }
+  #combat-scene { flex: 2; display: flex; justify-content: space-around; align-items: center; padding: 20px; position: relative; }
+  .combatant { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .combatant canvas { border: 2px solid #333; background: #111; }
+  .combatant-name { font-size: 14px; font-weight: bold; }
+  .combatant-hp { font-size: 12px; color: #aaa; }
+  .hp-bar-wrap { width: 120px; }
+  .hp-bar-bg { background: #333; height: 10px; border-radius: 5px; overflow: hidden; }
+  .hp-bar-fill { height: 100%; transition: width 0.3s; }
+  #player-hp-fill { background: #22c55e; }
+  #enemy-hp-fill { background: #ef4444; }
+  #vs-text { font-size: 32px; font-weight: bold; color: #f59e0b; text-shadow: 0 0 10px #f59e0b; }
+  #combat-log { background: #111; border-top: 2px solid #333; padding: 10px 16px; font-size: 13px; min-height: 80px; max-height: 100px; overflow-y: auto; }
+  #combat-log div { margin-bottom: 4px; }
+  #combat-log div:last-child { color: #fbbf24; }
+  #combat-menu { background: #1a1a2e; padding: 12px 16px; border-top: 2px solid #444; }
+  #combat-menu h3 { font-size: 12px; color: #aaa; margin-bottom: 8px; }
+  #menu-options { display: flex; gap: 12px; flex-wrap: wrap; }
+  .menu-btn { background: #2d2d4e; border: 2px solid #4a4a7a; color: #eee; padding: 8px 16px; cursor: pointer; font-family: inherit; font-size: 13px; border-radius: 4px; transition: all 0.15s; min-width: 80px; }
+  .menu-btn:hover, .menu-btn.selected { background: #4a4a7a; border-color: #a78bfa; color: #fff; }
+  .menu-btn.run-btn:hover, .menu-btn.run-btn.selected { background: #7c2020; border-color: #ef4444; }
+  .menu-btn.minion-btn { border-color: #854d0e; color: #fbbf24; }
+  .menu-btn.minion-btn:hover, .menu-btn.minion-btn.selected { background: #1c1508; border-color: #fbbf24; color: #fde047; box-shadow: 0 0 8px #92400e; }
+  .menu-btn.minion-btn:disabled, .menu-btn.minion-btn.dimmed { opacity: 0.38; cursor: not-allowed; box-shadow: none; background: #2d2d4e; border-color: #4a4a7a; color: #666; }
+  #minion-area { display: none; flex-direction: column; align-items: center; gap: 4px; animation: minionPop 0.3s ease; }
+  @keyframes minionPop { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  #minion-icon-big { font-size: 42px; line-height: 1; }
+  #minion-label { font-size: 12px; font-weight: bold; color: #fbbf24; letter-spacing: 1px; }
+  #minion-heals { font-size: 11px; color: #d97706; }
+  #powers-submenu { display: none; margin-top: 8px; }
+  #powers-list { display: flex; gap: 8px; flex-wrap: wrap; }
+  .power-btn { background: #1a2e1a; border: 2px solid #4a7a4a; color: #86efac; padding: 6px 12px; cursor: pointer; font-family: inherit; font-size: 12px; border-radius: 4px; transition: all 0.15s; }
+  .power-btn:hover, .power-btn.selected { background: #2d4a2d; border-color: #22c55e; }
+  #combat-hint { font-size: 11px; color: #666; margin-top: 6px; }
+
+  /* TITLE / END SCREENS */
+  #title-screen, #end-screen { position: fixed; inset: 0; display: flex; flex-direction: column; justify-content: center; align-items: center; background: #05050f; z-index: 100; }
+  #title-screen h1 { font-size: 52px; color: #a78bfa; text-shadow: 0 0 20px #7c3aed; margin-bottom: 8px; letter-spacing: 4px; }
+  #title-screen h2 { font-size: 18px; color: #f59e0b; margin-bottom: 40px; }
+  #title-screen p { color: #aaa; margin-bottom: 8px; text-align: center; max-width: 400px; }
+  .big-btn { background: #2d2d4e; border: 2px solid #a78bfa; color: #fff; padding: 14px 40px; cursor: pointer; font-family: inherit; font-size: 18px; border-radius: 6px; margin-top: 24px; transition: all 0.2s; }
+  .big-btn:hover { background: #4a4a7a; box-shadow: 0 0 20px #7c3aed; }
+  #end-screen h1 { font-size: 40px; margin-bottom: 16px; }
+  #end-screen p { font-size: 16px; color: #aaa; margin-bottom: 8px; text-align: center; }
+  #end-screen.win h1 { color: #22c55e; text-shadow: 0 0 20px #16a34a; }
+  #end-screen.lose h1 { color: #ef4444; text-shadow: 0 0 20px #b91c1c; }
+
+  /* NOTIFICATION */
+  #notif { position: fixed; top: 60px; left: 50%; transform: translateX(-50%); background: #1a1a2e; border: 2px solid #a78bfa; padding: 10px 24px; border-radius: 8px; font-size: 14px; color: #a78bfa; display: none; z-index: 50; text-align: center; }
+
+  /* SHOP VIEW */
+  #shop-view { display: none; flex-direction: column; height: 100vh; background: #0a0a0a; }
+  #shop-header { background: #1c1508; border-bottom: 3px solid #92400e; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+  #shop-header h2 { font-size: 26px; color: #fbbf24; text-shadow: 0 0 12px #b45309; letter-spacing: 3px; }
+  #shop-gold-display { font-size: 18px; color: #fde047; font-weight: bold; }
+  #shop-items { flex: 1; display: flex; gap: 20px; justify-content: center; align-items: center; padding: 30px; }
+  .shop-card { background: #111827; border: 3px solid #374151; border-radius: 10px; padding: 24px 20px; width: 180px; display: flex; flex-direction: column; align-items: center; gap: 10px; cursor: pointer; transition: all 0.18s; position: relative; }
+  .shop-card:hover, .shop-card.selected { border-color: #fbbf24; background: #1c1508; box-shadow: 0 0 18px #92400e88; }
+  .shop-card.cant-afford { opacity: 0.45; cursor: not-allowed; }
+  .shop-card.cant-afford:hover, .shop-card.cant-afford.selected { border-color: #6b7280; box-shadow: none; background: #111827; }
+  .shop-card.sold-out { opacity: 0.3; }
+  .shop-icon { font-size: 44px; line-height: 1; }
+  .shop-item-name { font-size: 15px; font-weight: bold; color: #f3f4f6; text-align: center; }
+  .shop-item-desc { font-size: 11px; color: #9ca3af; text-align: center; line-height: 1.4; }
+  .shop-price { font-size: 16px; color: #fbbf24; font-weight: bold; margin-top: 4px; }
+  .shop-sold-label { position: absolute; top: 8px; right: 8px; background: #374151; color: #6b7280; font-size: 10px; padding: 2px 6px; border-radius: 3px; }
+  #shop-footer { background: #1c1508; border-top: 2px solid #92400e; padding: 14px 24px; display: flex; justify-content: space-between; align-items: center; }
+  #shop-hint { font-size: 12px; color: #78350f; }
+  .shop-leave-btn { background: #292524; border: 2px solid #78350f; color: #d97706; padding: 8px 24px; cursor: pointer; font-family: inherit; font-size: 14px; border-radius: 4px; transition: all 0.15s; }
+  .shop-leave-btn:hover { background: #44403c; border-color: #fbbf24; }
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <h1>BEASTMAN</h1>
+  <h2>~ RPG ~</h2>
+  <p>Slay 7 unique beasts to unlock the path to the center.<br>Defeat the Demon to win!</p>
+  <p style="color:#f59e0b;margin-top:12px;">WASD / Arrow Keys to move</p>
+  <button class="big-btn" onclick="startGame()">BEGIN</button>
+</div>
+
+<div id="end-screen" style="display:none;">
+  <h1 id="end-title"></h1>
+  <p id="end-msg"></p>
+  <button class="big-btn" onclick="location.reload()">PLAY AGAIN</button>
+</div>
+
+<div id="notif"></div>
+
+<div id="game">
+  <!-- MAP VIEW -->
+  <div id="map-view">
+    <div id="hud">
+      <div class="stat">
+        <span>BEASTMAN</span>
+        <span id="hud-hp">HP: 100/100</span>
+      </div>
+      <div id="hp-bar-wrap">
+        <div id="hp-bar-bg"><div id="hp-bar" style="width:100%"></div></div>
+      </div>
+      <div class="stat">
+        <span>SLAIN</span>
+        <span id="hud-slain">0 / 7</span>
+      </div>
+      <div class="stat">
+        <span>POWERS</span>
+        <span id="hud-powers">0</span>
+      </div>
+      <div class="stat">
+        <span>GOLD</span>
+        <span id="hud-gold" style="color:#fbbf24;">0</span>
+      </div>
+    </div>
+    <div id="canvas-wrap">
+      <canvas id="map-canvas"></canvas>
+    </div>
+    <div id="powers-hud" id="powers-hud">Powers: none</div>
+  </div>
+
+  <!-- SHOP VIEW -->
+  <div id="shop-view">
+    <div id="shop-header">
+      <h2>🏪 BEAST MARKET</h2>
+      <span id="shop-gold-display">💰 Gold: 0</span>
+    </div>
+    <div id="shop-items">
+      <!-- built by JS -->
+    </div>
+    <div id="shop-footer">
+      <span id="shop-hint">← → to browse &nbsp;|&nbsp; Enter to buy &nbsp;|&nbsp; Esc to leave</span>
+      <button class="shop-leave-btn" onclick="closeShop()">LEAVE SHOP [Esc]</button>
+    </div>
+  </div>
+
+  <!-- COMBAT VIEW -->
+  <div id="combat-view">
+    <div id="combat-scene">
+      <div class="combatant">
+        <canvas id="player-sprite" width="100" height="100"></canvas>
+        <div class="combatant-name" id="p-name">BEASTMAN</div>
+        <div class="hp-bar-wrap">
+          <div class="hp-bar-bg"><div class="hp-bar-fill" id="player-hp-fill" style="width:100%"></div></div>
+        </div>
+        <div class="combatant-hp" id="p-hp"></div>
+      </div>
+      <div id="vs-text">VS</div>
+      <div id="minion-area">
+        <div id="minion-icon-big">🐾</div>
+        <div id="minion-label">ALLY</div>
+        <div id="minion-heals">♥♥</div>
+      </div>
+      <div class="combatant">
+        <canvas id="enemy-sprite" width="100" height="100"></canvas>
+        <div class="combatant-name" id="e-name"></div>
+        <div class="hp-bar-wrap">
+          <div class="hp-bar-bg"><div class="hp-bar-fill" id="enemy-hp-fill" style="width:100%"></div></div>
+        </div>
+        <div class="combatant-hp" id="e-hp"></div>
+      </div>
+    </div>
+    <div id="combat-log"></div>
+    <div id="combat-menu">
+      <h3>CHOOSE ACTION (Arrow Keys + Enter / Click)</h3>
+      <div id="menu-options">
+        <button class="menu-btn" id="btn-attack" onclick="menuAction('attack')">⚔ ATTACK</button>
+        <button class="menu-btn" id="btn-powers" onclick="menuAction('powers')">✨ POWERS</button>
+        <button class="menu-btn run-btn" id="btn-run" onclick="menuAction('run')">💨 RUN!</button>
+        <button class="menu-btn minion-btn" id="btn-minion" onclick="menuAction('minion')">🐾 MINION (25💰)</button>
+      </div>
+      <div id="powers-submenu">
+        <div id="powers-list"></div>
+      </div>
+      <div id="combat-hint">← → to navigate, Enter to select</div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===================== CONSTANTS =====================
+const TILE = 32;
+const COLS = 25;
+const ROWS = 20;
+const CENTER = { x: Math.floor(COLS/2), y: Math.floor(ROWS/2) };
+
+// Animal definitions: name, color, hp, atk, desc, power desc
+const ANIMALS = [
+  { id:'wolf',   name:'Wolf',       color:'#94a3b8', hpMax:40,  atk:8,  desc:'Fangs tear at your flesh.',   power:'Pack Howl',    pDesc:'Howl rallies spirit, boosting next 2 attacks by 50%.',  pColor:'#94a3b8' },
+  { id:'bear',   name:'Bear',       color:'#a16207', hpMax:60,  atk:12, desc:'Crushing bear hug!',           power:'Bear Slam',    pDesc:'Slam for 2x ATK damage.',                               pColor:'#a16207' },
+  { id:'snake',  name:'Viper',      color:'#4ade80', hpMax:30,  atk:6,  desc:'Venom seeps into your veins.', power:'Venom Fang',   pDesc:'Poison enemy for 5 dmg/turn x3.',                       pColor:'#4ade80' },
+  { id:'eagle',  name:'Eagle',      color:'#fbbf24', hpMax:35,  atk:9,  desc:'Talons rake your eyes.',       power:'Eagle Dive',   pDesc:'Always hits for 15 damage, ignores defense.',           pColor:'#fbbf24' },
+  { id:'boar',   name:'Boar',       color:'#fb923c', hpMax:50,  atk:10, desc:'Tusks gore you deep.',         power:'Charge',       pDesc:'Charge for 18 damage, stuns enemy 1 turn.',             pColor:'#fb923c' },
+  { id:'croc',   name:'Croc',       color:'#65a30d', hpMax:55,  atk:11, desc:'Death roll!',                  power:'Death Roll',   pDesc:'Roll for 20 damage.',                                   pColor:'#65a30d' },
+  { id:'spider', name:'Spider',     color:'#c084fc', hpMax:28,  atk:7,  desc:'Web binds your limbs!',        power:'Web Shot',     pDesc:'Bind enemy — they lose their next turn.',               pColor:'#c084fc' },
+  { id:'rhino',  name:'Rhino',      color:'#9ca3af', hpMax:70,  atk:14, desc:'Horn punch to the gut.',       power:'Rhino Rush',   pDesc:'Rush for 22 damage.',                                   pColor:'#9ca3af' },
+  { id:'shark',  name:'Land Shark', color:'#38bdf8', hpMax:65,  atk:13, desc:'Bites with massive jaws.',     power:'Jaw Lock',     pDesc:'Lock jaws — deal 12 and steal 6 HP.',                  pColor:'#38bdf8' },
+  { id:'gorilla',name:'Gorilla',    color:'#292524', hpMax:80,  atk:15, desc:'Pummeled by giant fists.',     power:'Gorilla Rage', pDesc:'Rage strike for 25 damage.',                            pColor:'#292524' },
+];
+const DEMON = {
+  id:'demon', name:'THE DEMON', color:'#dc2626', hpMax:200, atk:20,
+  desc:'Ancient evil unleashed!', power:'Demon Wrath', pDesc:'Uses all your stolen powers!', pColor:'#dc2626'
+};
+
+const SHOP_POS = { x: 21, y: 3 };
+const SHOP_ITEMS = [
+  { id:'brew',  icon:'🧪', name:'Healing Brew',  desc:'Restore HP to full',         cost:30,  effect:'fullheal', color:'#22c55e' },
+  { id:'fang',  icon:'⚔',  name:'Beast Fang',    desc:'+8 ATK permanently',         cost:60,  effect:'atk',      color:'#ef4444' },
+  { id:'hide',  icon:'🛡',  name:'Iron Hide',     desc:'+30 Max HP permanently',     cost:45,  effect:'maxhp',    color:'#38bdf8' },
+];
+
+// ===================== STATE =====================
+let player, enemies, pickups, combatState, inputState, gamePhase, shopSold, shopMenuIdx;
+
+function initState() {
+  player = {
+    x: 2, y: 2,
+    hp: 100, hpMax: 100,
+    atk: 15,
+    powers: [],
+    slain: [],
+    gold: 0,
+    packHowlCharges: 0,
+    poisonTurns: 0,
+    poisonDmg: 0,
+  };
+  enemies = [];
+  pickups = [];
+  combatState = null;
+  inputState = { menu: 0, powerIdx: 0, inPowers: false, locked: false };
+  gamePhase = 'map';
+  shopSold = [];
+  spawnEnemies();
+  spawnPickups();
+}
+
+function spawnPickups() {
+  // 4 hearts + 6 chests scattered on the map
+  const items = [
+    ...Array(4).fill('heart'),
+    ...Array(6).fill('chest'),
+  ];
+  items.forEach(type => {
+    let px, py;
+    do {
+      px = 2 + Math.floor(Math.random() * (COLS - 4));
+      py = 2 + Math.floor(Math.random() * (ROWS - 4));
+    } while (
+      (Math.abs(px - player.x) < 3 && Math.abs(py - player.y) < 3) ||
+      pickups.some(p => p.x === px && p.y === py) ||
+      (Math.abs(px - CENTER.x) <= 2 && Math.abs(py - CENTER.y) <= 2)
+    );
+    pickups.push({ type, x: px, y: py, open: false });
+  });
+}
+
+function spawnEnemies() {
+  const shuffled = [...ANIMALS].sort(() => Math.random()-0.5);
+  shuffled.forEach((a, i) => {
+    let ex, ey;
+    do {
+      ex = 2 + Math.floor(Math.random() * (COLS - 4));
+      ey = 2 + Math.floor(Math.random() * (ROWS - 4));
+    } while (Math.abs(ex - player.x) < 4 && Math.abs(ey - player.y) < 4);
+    enemies.push({ ...a, x: ex, y: ey, hp: a.hpMax, alive: true });
+  });
+}
+
+// ===================== CANVAS SETUP =====================
+let mapCanvas, mapCtx;
+function setupCanvas() {
+  mapCanvas = document.getElementById('map-canvas');
+  mapCanvas.width  = COLS * TILE;
+  mapCanvas.height = ROWS * TILE;
+  mapCtx = mapCanvas.getContext('2d');
+}
+
+// ===================== DRAWING =====================
+const TERRAIN_COLORS = ['#1a3a1a','#1e3d1e','#163016','#1c3b1c','#183318'];
+const terrainMap = [];
+function buildTerrain() {
+  for (let r = 0; r < ROWS; r++) {
+    terrainMap[r] = [];
+    for (let c = 0; c < COLS; c++) {
+      terrainMap[r][c] = TERRAIN_COLORS[Math.floor(Math.random()*TERRAIN_COLORS.length)];
+    }
+  }
+}
+
+function drawHeart(col, row) {
+  const x = col * TILE, y = row * TILE, s = TILE;
+  mapCtx.fillStyle = '#ff4d6d';
+  // two bumps
+  mapCtx.beginPath();
+  mapCtx.arc(x + s*0.33, y + s*0.38, s*0.16, 0, Math.PI*2); mapCtx.fill();
+  mapCtx.beginPath();
+  mapCtx.arc(x + s*0.67, y + s*0.38, s*0.16, 0, Math.PI*2); mapCtx.fill();
+  // bottom triangle
+  mapCtx.beginPath();
+  mapCtx.moveTo(x + s*0.17, y + s*0.44);
+  mapCtx.lineTo(x + s*0.5,  y + s*0.78);
+  mapCtx.lineTo(x + s*0.83, y + s*0.44);
+  mapCtx.closePath(); mapCtx.fill();
+  // white sparkle
+  mapCtx.fillStyle = 'rgba(255,255,255,0.6)';
+  mapCtx.fillRect(x + s*0.28, y + s*0.32, s*0.1, s*0.08);
+}
+
+function drawGoldDrop(col, row, value) {
+  const x = col * TILE + TILE/2, y = row * TILE + TILE/2, r = TILE*0.28;
+  // outer glow ring
+  mapCtx.beginPath();
+  mapCtx.arc(x, y, r + 3, 0, Math.PI*2);
+  mapCtx.fillStyle = 'rgba(251,191,36,0.25)';
+  mapCtx.fill();
+  // coin body
+  mapCtx.beginPath();
+  mapCtx.arc(x, y, r, 0, Math.PI*2);
+  mapCtx.fillStyle = '#ca8a04';
+  mapCtx.fill();
+  mapCtx.beginPath();
+  mapCtx.arc(x, y, r * 0.75, 0, Math.PI*2);
+  mapCtx.fillStyle = '#fbbf24';
+  mapCtx.fill();
+  // G text
+  mapCtx.fillStyle = '#78350f';
+  mapCtx.font = `bold ${Math.floor(r)}px Courier New`;
+  mapCtx.textAlign = 'center';
+  mapCtx.textBaseline = 'middle';
+  mapCtx.fillText('G', x, y + 1);
+  mapCtx.textBaseline = 'alphabetic';
+  // value label
+  mapCtx.fillStyle = '#fde047';
+  mapCtx.font = `8px Courier New`;
+  mapCtx.fillText(value, x, col * TILE + TILE - 2);
+}
+
+function drawChest(col, row, opened) {
+  const x = col * TILE + 3, y = row * TILE + 5, w = TILE-6, h = TILE-10;
+  // body
+  mapCtx.fillStyle = opened ? '#713f12' : '#92400e';
+  mapCtx.fillRect(x, y + h*0.4, w, h*0.6);
+  // lid
+  mapCtx.fillStyle = opened ? '#451a03' : '#b45309';
+  mapCtx.fillRect(x, y, w, h*0.45);
+  // latch
+  mapCtx.fillStyle = '#fbbf24';
+  mapCtx.fillRect(x + w/2 - 3, y + h*0.35, 6, 8);
+  // straps
+  mapCtx.fillStyle = '#78350f';
+  mapCtx.fillRect(x + w*0.2, y, 4, h);
+  mapCtx.fillRect(x + w*0.7, y, 4, h);
+  if (opened) {
+    // open lid tilt
+    mapCtx.fillStyle = '#451a03';
+    mapCtx.fillRect(x, y - 5, w, h*0.3);
+    // gold shine
+    mapCtx.fillStyle = '#fde047';
+    mapCtx.beginPath();
+    mapCtx.arc(x + w/2, y + h*0.7, 5, 0, Math.PI*2); mapCtx.fill();
+  }
+}
+
+function drawMap() {
+  // terrain
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      mapCtx.fillStyle = terrainMap[r][c];
+      mapCtx.fillRect(c*TILE, r*TILE, TILE, TILE);
+      // grid lines
+      mapCtx.strokeStyle = 'rgba(0,0,0,0.2)';
+      mapCtx.strokeRect(c*TILE, r*TILE, TILE, TILE);
+    }
+  }
+
+  // center demon zone (if 7+ slain)
+  const cx = CENTER.x * TILE, cy = CENTER.y * TILE;
+  if (player.slain.length >= 7) {
+    mapCtx.fillStyle = '#3b0000';
+    mapCtx.fillRect((CENTER.x-1)*TILE, (CENTER.y-1)*TILE, 3*TILE, 3*TILE);
+    mapCtx.fillStyle = '#dc2626';
+    mapCtx.font = 'bold 18px Courier New';
+    mapCtx.textAlign = 'center';
+    mapCtx.fillText('DEMON', (CENTER.x+0.5)*TILE, (CENTER.y+0.5)*TILE);
+  } else {
+    // show locked center
+    mapCtx.fillStyle = '#1a0a0a';
+    mapCtx.fillRect((CENTER.x-1)*TILE, (CENTER.y-1)*TILE, 3*TILE, 3*TILE);
+    mapCtx.fillStyle = '#555';
+    mapCtx.font = '11px Courier New';
+    mapCtx.textAlign = 'center';
+    mapCtx.fillText(`${7-player.slain.length} more`, (CENTER.x+0.5)*TILE, (CENTER.y)*TILE+6);
+    mapCtx.fillText('beasts', (CENTER.x+0.5)*TILE, (CENTER.y)*TILE+20);
+  }
+
+  // shop tile
+  const sx = SHOP_POS.x * TILE, sy = SHOP_POS.y * TILE;
+  mapCtx.fillStyle = '#1c1508';
+  mapCtx.fillRect(sx, sy, TILE*2, TILE*2);
+  mapCtx.strokeStyle = '#92400e';
+  mapCtx.lineWidth = 2;
+  mapCtx.strokeRect(sx+1, sy+1, TILE*2-2, TILE*2-2);
+  mapCtx.lineWidth = 1;
+  mapCtx.fillStyle = '#fbbf24';
+  mapCtx.font = 'bold 11px Courier New';
+  mapCtx.textAlign = 'center';
+  mapCtx.fillText('SHOP', sx + TILE, sy + TILE - 4);
+  mapCtx.font = '18px serif';
+  mapCtx.fillText('🏪', sx + TILE, sy + TILE + 14);
+
+  // pickups
+  pickups.filter(p => !p.open).forEach(p => {
+    if (p.type === 'heart')      drawHeart(p.x, p.y);
+    else if (p.type === 'chest') drawChest(p.x, p.y, false);
+    else if (p.type === 'gold')  drawGoldDrop(p.x, p.y, p.value);
+  });
+
+  // enemies
+  enemies.filter(e => e.alive).forEach(e => {
+    mapCtx.fillStyle = e.color;
+    mapCtx.fillRect(e.x*TILE+4, e.y*TILE+4, TILE-8, TILE-8);
+    mapCtx.fillStyle = '#fff';
+    mapCtx.font = '9px Courier New';
+    mapCtx.textAlign = 'center';
+    mapCtx.fillText(e.name.slice(0,4), (e.x+0.5)*TILE, (e.y+0.5)*TILE+4);
+    // HP dot
+    const pct = e.hp / e.hpMax;
+    mapCtx.fillStyle = pct > 0.5 ? '#22c55e' : pct > 0.25 ? '#f59e0b' : '#ef4444';
+    mapCtx.fillRect(e.x*TILE+4, e.y*TILE+2, (TILE-8)*pct, 3);
+  });
+
+  // demon on map if 7+ slain
+  if (player.slain.length >= 7) {
+    mapCtx.fillStyle = '#dc2626';
+    mapCtx.fillRect((CENTER.x)*TILE+4, (CENTER.y)*TILE+4, TILE-8, TILE-8);
+  }
+
+  // player
+  mapCtx.fillStyle = '#a78bfa';
+  mapCtx.fillRect(player.x*TILE+2, player.y*TILE+2, TILE-4, TILE-4);
+  mapCtx.fillStyle = '#fff';
+  mapCtx.font = 'bold 11px Courier New';
+  mapCtx.textAlign = 'center';
+  mapCtx.fillText('B', (player.x+0.5)*TILE, (player.y+0.5)*TILE+4);
+}
+
+function drawCombatSprite(canvas, entity, isPlayer) {
+  const ctx = canvas.getContext('2d');
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0,0,w,h);
+  ctx.fillStyle = '#111';
+  ctx.fillRect(0,0,w,h);
+  ctx.fillStyle = isPlayer ? '#a78bfa' : entity.color;
+  // simple creature silhouette
+  if (isPlayer) {
+    // humanoid
+    ctx.fillRect(35,10,30,25); // head
+    ctx.fillRect(30,35,40,30); // body
+    ctx.fillRect(20,35,12,40); // left arm
+    ctx.fillRect(68,35,12,40); // right arm
+    ctx.fillRect(33,65,14,30); // left leg
+    ctx.fillRect(53,65,14,30); // right leg
+    ctx.fillStyle = '#f59e0b';
+    ctx.fillRect(38,15,24,18); // face
+  } else {
+    // animal blob
+    ctx.beginPath();
+    ctx.ellipse(50,55,35,30,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.fillStyle = entity.color;
+    ctx.beginPath();
+    ctx.ellipse(50,28,22,20,0,0,Math.PI*2);
+    ctx.fill();
+    // eyes
+    ctx.fillStyle = '#ff0000';
+    ctx.fillRect(40,22,8,6);
+    ctx.fillRect(56,22,8,6);
+  }
+}
+
+// ===================== HUD =====================
+function updateHUD() {
+  const pct = player.hp / player.hpMax;
+  document.getElementById('hp-bar').style.width = (pct*100)+'%';
+  document.getElementById('hp-bar').style.background = pct > 0.5 ? '#22c55e' : pct > 0.25 ? '#f59e0b' : '#ef4444';
+  document.getElementById('hud-hp').textContent = `HP: ${player.hp}/${player.hpMax}`;
+  document.getElementById('hud-slain').textContent = `${player.slain.length} / 7`;
+  document.getElementById('hud-powers').textContent = player.powers.length;
+  document.getElementById('hud-gold').textContent = player.gold;
+
+  const powList = player.powers.map(pid => {
+    const a = ANIMALS.find(x=>x.id===pid);
+    return a ? `<span style="color:${a.pColor}">★${a.power}</span>` : '';
+  }).join(' ');
+  document.getElementById('powers-hud').innerHTML = 'Powers: ' + (powList || 'none');
+}
+
+// ===================== MAP MOVEMENT =====================
+let keys = {};
+let moveTimer = 0;
+const MOVE_DELAY = 150;
+
+function tryMove(dx, dy) {
+  const nx = player.x + dx;
+  const ny = player.y + dy;
+  if (nx < 0 || ny < 0 || nx >= COLS || ny >= ROWS) return;
+  player.x = nx;
+  player.y = ny;
+
+  // check demon zone
+  if (player.slain.length >= 7 &&
+      Math.abs(player.x - CENTER.x) <= 1 && Math.abs(player.y - CENTER.y) <= 1) {
+    startCombat(DEMON);
+    return;
+  }
+
+  // check shop collision (2x2 tile)
+  if (player.x >= SHOP_POS.x && player.x <= SHOP_POS.x+1 &&
+      player.y >= SHOP_POS.y && player.y <= SHOP_POS.y+1) {
+    openShop(); return;
+  }
+
+  // check pickup collision
+  const pickup = pickups.find(p => !p.open && p.x === player.x && p.y === player.y);
+  if (pickup) collectPickup(pickup);
+
+  // check enemy collision
+  const hit = enemies.find(e => e.alive && e.x === player.x && e.y === player.y);
+  if (hit) startCombat(hit);
+}
+
+function collectPickup(pickup) {
+  if (pickup.type === 'gold') {
+    player.gold += pickup.value;
+    pickup.open = true;
+    showNotif(`💰 Picked up ${pickup.value} gold! Total: ${player.gold}`, 1800);
+    updateHUD();
+    return;
+  }
+  if (pickup.type === 'heart') {
+    const healed = Math.floor(player.hpMax * 0.5);
+    const actual = Math.min(healed, player.hpMax - player.hp);
+    player.hp = Math.min(player.hpMax, player.hp + healed);
+    pickup.open = true;
+    showNotif(`❤ Heart! Restored ${actual} HP!`, 2200);
+  } else {
+    // chest: 50/50 heart or gold
+    pickup.open = true;
+    if (Math.random() < 0.5) {
+      const healed = Math.floor(player.hpMax * 0.5);
+      const actual = Math.min(healed, player.hpMax - player.hp);
+      player.hp = Math.min(player.hpMax, player.hp + healed);
+      showNotif(`📦 Chest: Found a Heart! +${actual} HP!`, 2200);
+    } else {
+      const gold = 10 + Math.floor(Math.random() * 41); // 10–50
+      player.gold += gold;
+      showNotif(`📦 Chest: Found ${gold} Gold! 💰 Total: ${player.gold}`, 2200);
+    }
+  }
+  updateHUD();
+}
+
+// ===================== SHOP =====================
+function openShop() {
+  gamePhase = 'shop';
+  shopMenuIdx = 0;
+  document.getElementById('map-view').style.display = 'none';
+  document.getElementById('shop-view').style.display = 'flex';
+  renderShopItems();
+  updateShopGold();
+}
+
+function closeShop() {
+  gamePhase = 'map';
+  document.getElementById('shop-view').style.display = 'none';
+  document.getElementById('map-view').style.display = 'flex';
+  // nudge player out of shop
+  player.x = SHOP_POS.x - 1;
+  player.y = SHOP_POS.y + 1;
+  updateHUD(); drawMap();
+}
+
+function updateShopGold() {
+  document.getElementById('shop-gold-display').textContent = `💰 Gold: ${player.gold}`;
+}
+
+function renderShopItems() {
+  const container = document.getElementById('shop-items');
+  container.innerHTML = '';
+  SHOP_ITEMS.forEach((item, i) => {
+    const sold = shopSold.includes(item.id);
+    const cantAfford = player.gold < item.cost;
+    const card = document.createElement('div');
+    card.className = 'shop-card' +
+      (i === shopMenuIdx ? ' selected' : '') +
+      (sold ? ' sold-out' : cantAfford ? ' cant-afford' : '');
+    card.dataset.idx = i;
+    card.innerHTML = `
+      ${sold ? '<span class="shop-sold-label">SOLD</span>' : ''}
+      <div class="shop-icon">${item.icon}</div>
+      <div class="shop-item-name" style="color:${item.color}">${item.name}</div>
+      <div class="shop-item-desc">${item.desc}</div>
+      <div class="shop-price">${sold ? '—' : item.cost + ' 💰'}</div>
+    `;
+    if (!sold) card.onclick = () => { shopMenuIdx = i; buyShopItem(i); };
+    container.appendChild(card);
+  });
+}
+
+function highlightShopItems() {
+  document.querySelectorAll('.shop-card').forEach((c, i) => {
+    c.classList.toggle('selected', i === shopMenuIdx);
+  });
+}
+
+function buyShopItem(idx) {
+  const item = SHOP_ITEMS[idx];
+  if (!item) return;
+  if (shopSold.includes(item.id)) { showNotif('Already sold out!', 1500); return; }
+  if (player.gold < item.cost) { showNotif(`Not enough gold! Need ${item.cost} 💰`, 1800); return; }
+
+  player.gold -= item.cost;
+  shopSold.push(item.id);
+
+  switch(item.effect) {
+    case 'fullheal':
+      const healed = player.hpMax - player.hp;
+      player.hp = player.hpMax;
+      showNotif(`🧪 Healing Brew! Restored ${healed} HP!`, 2200);
+      break;
+    case 'atk':
+      player.atk += 8;
+      showNotif(`⚔ Beast Fang equipped! ATK is now ${player.atk}!`, 2200);
+      break;
+    case 'maxhp':
+      player.hpMax += 30;
+      player.hp = Math.min(player.hp + 30, player.hpMax);
+      showNotif(`🛡 Iron Hide! Max HP is now ${player.hpMax}!`, 2200);
+      break;
+  }
+  updateHUD();
+  updateShopGold();
+  renderShopItems();
+}
+
+// ===================== COMBAT =====================
+function startCombat(enemy) {
+  gamePhase = 'combat';
+  document.getElementById('map-view').style.display = 'none';
+  document.getElementById('combat-view').style.display = 'flex';
+
+  const isDemon = enemy.id === 'demon';
+  combatState = {
+    enemy: { ...enemy, hp: isDemon ? enemy.hpMax : enemy.hp },
+    isDemon,
+    playerTurn: true,
+    enemyStunned: false,
+    playerPoisonTurns: 0,
+    enemyPoisonTurns: 0,
+    enemyPoisonDmg: 0,
+    webbed: false,
+    minion: null,
+  };
+
+  // draw sprites
+  drawCombatSprite(document.getElementById('player-sprite'), player, true);
+  drawCombatSprite(document.getElementById('enemy-sprite'), enemy, false);
+
+  document.getElementById('e-name').textContent = enemy.name;
+  updateCombatHUD();
+  buildPowerButtons();
+  clearLog();
+  logMsg(`A wild ${enemy.name} appears!`, '#f59e0b');
+  if (isDemon) logMsg('The Demon wields all your stolen powers!', '#dc2626');
+  document.getElementById('minion-area').style.display = 'none';
+  setMainMenu();
+  updateMinionUI();
+}
+
+function updateCombatHUD() {
+  const e = combatState.enemy;
+  const pp = player.hp / player.hpMax;
+  const ep = e.hp / e.hpMax;
+  document.getElementById('player-hp-fill').style.width = (pp*100)+'%';
+  document.getElementById('enemy-hp-fill').style.width  = (Math.max(0,ep)*100)+'%';
+  document.getElementById('p-hp').textContent = `HP: ${player.hp}/${player.hpMax}`;
+  document.getElementById('e-hp').textContent = `HP: ${e.hp}/${e.hpMax}`;
+}
+
+function buildPowerButtons() {
+  const list = document.getElementById('powers-list');
+  list.innerHTML = '';
+  player.powers.forEach((pid, i) => {
+    const a = ANIMALS.find(x=>x.id===pid);
+    if (!a) return;
+    const btn = document.createElement('button');
+    btn.className = 'power-btn';
+    btn.style.borderColor = a.pColor;
+    btn.style.color = a.pColor;
+    btn.textContent = `★ ${a.power}`;
+    btn.title = a.pDesc;
+    btn.onclick = () => usePower(pid);
+    btn.dataset.pid = pid;
+    list.appendChild(btn);
+  });
+}
+
+function clearLog() { document.getElementById('combat-log').innerHTML = ''; }
+function logMsg(msg, color='#eee') {
+  const el = document.createElement('div');
+  el.style.color = color;
+  el.textContent = msg;
+  const log = document.getElementById('combat-log');
+  log.appendChild(el);
+  log.scrollTop = log.scrollHeight;
+}
+
+// Menu navigation
+let menuButtons = ['attack','powers','run'];
+let menuIdx = 0;
+let inPowersMenu = false;
+let powerMenuIdx = 0;
+
+function setMainMenu() {
+  inPowersMenu = false;
+  menuIdx = 0;
+  document.getElementById('powers-submenu').style.display = 'none';
+  highlightMenu();
+  inputState.locked = false;
+}
+
+function highlightMenu() {
+  ['attack','powers','run','minion'].forEach((id, i) => {
+    const btn = document.getElementById('btn-'+id);
+    if (btn) btn.classList.toggle('selected', i === menuIdx);
+  });
+}
+
+function highlightPowers() {
+  const btns = document.querySelectorAll('.power-btn');
+  btns.forEach((b, i) => b.classList.toggle('selected', i === powerMenuIdx));
+}
+
+function menuAction(action) {
+  if (action === 'attack') doPlayerAttack();
+  else if (action === 'powers') openPowers();
+  else if (action === 'run') doRun();
+  else if (action === 'minion') summonMinion();
+}
+
+function summonMinion() {
+  if (!combatState.playerTurn || inputState.locked) return;
+  const MINION_COST = 25;
+  if (combatState.minion) { logMsg('Your ally is already here!', '#f59e0b'); return; }
+  if (player.gold < MINION_COST) {
+    logMsg(`Not enough gold! Need ${MINION_COST} 💰 (have ${player.gold})`, '#ef4444'); return;
+  }
+  player.gold -= MINION_COST;
+  combatState.minion = { healsLeft: 2, healAmt: 25, threshold: 0.38 };
+  updateHUD();
+  updateMinionUI();
+  logMsg('🐾 A loyal ally appears by your side!', '#fbbf24');
+  logMsg('The ally will heal you when HP drops below 38%!', '#d97706');
+  // minion arrival uses a free action — enemy still attacks
+  inputState.locked = true;
+  setTimeout(enemyTurn, 900);
+}
+
+function updateMinionUI() {
+  const area = document.getElementById('minion-area');
+  const btn  = document.getElementById('btn-minion');
+  if (!combatState) return;
+  if (combatState.minion) {
+    area.style.display = 'flex';
+    const h = combatState.minion.healsLeft;
+    document.getElementById('minion-heals').textContent = '♥'.repeat(h) + '♡'.repeat(2 - h);
+    document.getElementById('minion-heals').style.color = h > 0 ? '#22c55e' : '#555';
+    btn.textContent = '🐾 ALLY ACTIVE';
+    btn.classList.add('dimmed');
+  } else {
+    area.style.display = 'none';
+    btn.textContent = '🐾 MINION (25💰)';
+    btn.classList.remove('dimmed');
+    // grey out if can't afford
+    btn.classList.toggle('dimmed', player.gold < 25);
+  }
+}
+
+function openPowers() {
+  if (player.powers.length === 0) { logMsg('No powers yet!','#888'); return; }
+  document.getElementById('powers-submenu').style.display = 'block';
+  inPowersMenu = true;
+  powerMenuIdx = 0;
+  highlightPowers();
+}
+
+function doPlayerAttack() {
+  if (!combatState.playerTurn || inputState.locked) return;
+  inputState.locked = true;
+
+  let dmg = player.atk + Math.floor(Math.random()*8);
+  if (player.packHowlCharges > 0) {
+    dmg = Math.floor(dmg * 1.5);
+    player.packHowlCharges--;
+    logMsg(`Pack Howl empowers your strike!`, '#94a3b8');
+  }
+  combatState.enemy.hp -= dmg;
+  logMsg(`You strike ${combatState.enemy.name} for ${dmg} damage!`, '#86efac');
+
+  // apply enemy poison
+  if (combatState.enemyPoisonTurns > 0) {
+    combatState.enemy.hp -= combatState.enemyPoisonDmg;
+    logMsg(`Venom deals ${combatState.enemyPoisonDmg} poison damage!`,'#4ade80');
+    combatState.enemyPoisonTurns--;
+  }
+
+  updateCombatHUD();
+  if (combatState.enemy.hp <= 0) { enemyDefeated(); return; }
+  setTimeout(enemyTurn, 900);
+}
+
+function usePower(pid) {
+  if (!combatState.playerTurn || inputState.locked) return;
+  inputState.locked = true;
+  setMainMenu();
+
+  const a = ANIMALS.find(x=>x.id===pid);
+  if (!a) return;
+
+  let skipEnemy = false;
+
+  switch(pid) {
+    case 'wolf':
+      player.packHowlCharges = 2;
+      logMsg(`Pack Howl: next 2 attacks boosted!`, a.pColor);
+      break;
+    case 'bear':
+      const bdmg = player.atk * 2;
+      combatState.enemy.hp -= bdmg;
+      logMsg(`Bear Slam hits for ${bdmg}!`, a.pColor);
+      break;
+    case 'snake':
+      combatState.enemyPoisonTurns = 3;
+      combatState.enemyPoisonDmg = 5;
+      logMsg(`Venom Fang: ${combatState.enemy.name} is poisoned!`, a.pColor);
+      break;
+    case 'eagle':
+      combatState.enemy.hp -= 15;
+      logMsg(`Eagle Dive hits for 15, ignoring defense!`, a.pColor);
+      break;
+    case 'boar':
+      combatState.enemy.hp -= 18;
+      combatState.enemyStunned = true;
+      logMsg(`Charge hits for 18 and stuns ${combatState.enemy.name}!`, a.pColor);
+      skipEnemy = true;
+      break;
+    case 'croc':
+      combatState.enemy.hp -= 20;
+      logMsg(`Death Roll hits for 20!`, a.pColor);
+      break;
+    case 'spider':
+      combatState.webbed = true;
+      logMsg(`Web Shot: ${combatState.enemy.name} is webbed and loses their next turn!`, a.pColor);
+      skipEnemy = true;
+      break;
+    case 'rhino':
+      combatState.enemy.hp -= 22;
+      logMsg(`Rhino Rush hits for 22!`, a.pColor);
+      break;
+    case 'shark':
+      combatState.enemy.hp -= 12;
+      const steal = 6;
+      player.hp = Math.min(player.hpMax, player.hp + steal);
+      logMsg(`Jaw Lock deals 12 and steals 6 HP!`, a.pColor);
+      break;
+    case 'gorilla':
+      combatState.enemy.hp -= 25;
+      logMsg(`Gorilla Rage hits for 25!`, a.pColor);
+      break;
+  }
+
+  // apply poison if applicable
+  if (!skipEnemy && combatState.enemyPoisonTurns > 0 && pid !== 'snake') {
+    combatState.enemy.hp -= combatState.enemyPoisonDmg;
+    logMsg(`Venom deals ${combatState.enemyPoisonDmg} poison damage!`,'#4ade80');
+    combatState.enemyPoisonTurns--;
+  }
+
+  updateCombatHUD();
+  if (combatState.enemy.hp <= 0) { enemyDefeated(); return; }
+  if (skipEnemy) {
+    combatState.playerTurn = true;
+    inputState.locked = false;
+    setMainMenu();
+  } else {
+    setTimeout(enemyTurn, 900);
+  }
+}
+
+function enemyTurn() {
+  if (combatState.enemy.hp <= 0) return;
+
+  // poison tick
+  if (combatState.enemyPoisonTurns > 0 && combatState.enemy.hp > 0) {
+    // already applied after player attack, skip here
+  }
+
+  if (combatState.webbed) {
+    logMsg(`${combatState.enemy.name} is webbed and can't move!`, '#c084fc');
+    combatState.webbed = false;
+    combatState.playerTurn = true;
+    inputState.locked = false;
+    setMainMenu();
+    return;
+  }
+
+  if (combatState.enemyStunned) {
+    logMsg(`${combatState.enemy.name} is stunned!`, '#f59e0b');
+    combatState.enemyStunned = false;
+    combatState.playerTurn = true;
+    inputState.locked = false;
+    setMainMenu();
+    return;
+  }
+
+  const isDemon = combatState.isDemon;
+  let dmg, msgColor = '#fca5a5';
+
+  if (isDemon && player.powers.length > 0) {
+    // demon uses a random power
+    const pid = player.powers[Math.floor(Math.random()*player.powers.length)];
+    const a = ANIMALS.find(x=>x.id===pid);
+    dmg = (combatState.enemy.atk + Math.floor(Math.random()*10)) * 2;
+    logMsg(`Demon uses ${a.power}: hits for ${dmg}!`, '#dc2626');
+  } else {
+    dmg = combatState.enemy.atk + Math.floor(Math.random()*8);
+    if (isDemon) dmg *= 2;
+    logMsg(`${combatState.enemy.name} attacks: ${combatState.enemy.desc} (${dmg} dmg)`, msgColor);
+  }
+
+  player.hp = Math.max(0, player.hp - dmg);
+  updateCombatHUD();
+  updateHUD();
+
+  // minion heal check — triggers when HP falls below threshold
+  if (combatState.minion && combatState.minion.healsLeft > 0 &&
+      player.hp > 0 && player.hp / player.hpMax <= combatState.minion.threshold) {
+    const healAmt = Math.min(combatState.minion.healAmt, player.hpMax - player.hp);
+    player.hp += healAmt;
+    combatState.minion.healsLeft--;
+    logMsg(`🐾 Your ally rushes in and heals you for ${healAmt} HP!`, '#fbbf24');
+    if (combatState.minion.healsLeft === 0) logMsg('Your ally has no heals left!', '#d97706');
+    updateCombatHUD();
+    updateHUD();
+    updateMinionUI();
+  }
+
+  if (player.hp <= 0) {
+    logMsg('You have been slain...', '#ef4444');
+    setTimeout(() => endGame(false), 1200);
+    return;
+  }
+
+  combatState.playerTurn = true;
+  inputState.locked = false;
+  setMainMenu();
+  updateMinionUI();
+}
+
+function doRun() {
+  if (!combatState.playerTurn || inputState.locked) return;
+  // 60% chance to flee
+  if (Math.random() < 0.6) {
+    logMsg('You flee successfully!', '#f59e0b');
+    setTimeout(exitCombat, 800);
+  } else {
+    logMsg('Failed to flee!', '#ef4444');
+    inputState.locked = true;
+    setTimeout(enemyTurn, 700);
+  }
+}
+
+function enemyDefeated() {
+  const e = combatState.enemy;
+  logMsg(`${e.name} has been slain!`, '#22c55e');
+
+  const isDemon = combatState.isDemon;
+  if (isDemon) {
+    setTimeout(() => endGame(true), 1200);
+    return;
+  }
+
+  // grant power
+  if (!player.powers.includes(e.id)) {
+    player.powers.push(e.id);
+    logMsg(`You gained the power: ${e.power}!`, e.pColor);
+  }
+  if (!player.slain.includes(e.id)) {
+    player.slain.push(e.id);
+  }
+
+  // mark enemy dead on map + drop gold
+  const mapEnemy = enemies.find(x=>x.id===e.id);
+  if (mapEnemy) {
+    mapEnemy.alive = false;
+    const dropValue = Math.floor(e.hpMax / 8) + Math.floor(e.atk / 2) + Math.floor(Math.random() * 8) + 3;
+    pickups.push({ type: 'gold', x: mapEnemy.x, y: mapEnemy.y, value: dropValue, open: false });
+    logMsg(`${e.name} dropped ${dropValue} gold!`, '#fbbf24');
+  }
+
+  if (player.slain.length >= 7 && !enemies.find(x=>x.id==='demon')) {
+    showNotif('7 beasts slain! The Demon awaits at the center!', 4000);
+  }
+
+  setTimeout(exitCombat, 1000);
+}
+
+function exitCombat() {
+  gamePhase = 'map';
+  combatState = null;
+  document.getElementById('combat-view').style.display = 'none';
+  document.getElementById('map-view').style.display = 'flex';
+  // push player off enemy square
+  player.x = Math.max(0, player.x - 1);
+  updateHUD();
+  drawMap();
+}
+
+// ===================== KEYBOARD CONTROLS =====================
+document.addEventListener('keydown', (e) => {
+  if (gamePhase === 'map') {
+    handleMapKey(e);
+  } else if (gamePhase === 'combat') {
+    handleCombatKey(e);
+  } else if (gamePhase === 'shop') {
+    handleShopKey(e);
+  }
+});
+
+function handleShopKey(e) {
+  const count = SHOP_ITEMS.length;
+  if (e.key === 'Escape' || e.key === 'q' || e.key === 'Q') { closeShop(); return; }
+  if (e.key === 'ArrowLeft'  || e.key === 'a' || e.key === 'A') { shopMenuIdx = (shopMenuIdx - 1 + count) % count; highlightShopItems(); }
+  if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { shopMenuIdx = (shopMenuIdx + 1) % count; highlightShopItems(); }
+  if (e.key === 'Enter' || e.key === ' ') { buyShopItem(shopMenuIdx); }
+  e.preventDefault();
+}
+
+let lastMoveTime = 0;
+function handleMapKey(e) {
+  const now = Date.now();
+  if (now - lastMoveTime < MOVE_DELAY) return;
+  lastMoveTime = now;
+
+  switch(e.key) {
+    case 'ArrowUp': case 'w': case 'W': tryMove(0,-1); break;
+    case 'ArrowDown': case 's': case 'S': tryMove(0,1); break;
+    case 'ArrowLeft': case 'a': case 'A': tryMove(-1,0); break;
+    case 'ArrowRight': case 'd': case 'D': tryMove(1,0); break;
+  }
+  if (gamePhase === 'map') { updateHUD(); drawMap(); }
+}
+
+function handleCombatKey(e) {
+  if (inputState.locked) return;
+
+  if (inPowersMenu) {
+    const btns = document.querySelectorAll('.power-btn');
+    if (e.key === 'Escape') { setMainMenu(); return; }
+    if (e.key === 'ArrowLeft') { powerMenuIdx = (powerMenuIdx - 1 + btns.length) % btns.length; highlightPowers(); }
+    if (e.key === 'ArrowRight') { powerMenuIdx = (powerMenuIdx + 1) % btns.length; highlightPowers(); }
+    if (e.key === 'Enter' || e.key === ' ') {
+      const pid = [...btns][powerMenuIdx]?.dataset.pid;
+      if (pid) usePower(pid);
+    }
+    return;
+  }
+
+  const count = 4;
+  if (e.key === 'ArrowLeft') { menuIdx = (menuIdx - 1 + count) % count; highlightMenu(); }
+  if (e.key === 'ArrowRight') { menuIdx = (menuIdx + 1) % count; highlightMenu(); }
+  if (e.key === 'Enter' || e.key === ' ') {
+    const actions = ['attack','powers','run','minion'];
+    menuAction(actions[menuIdx]);
+  }
+  e.preventDefault();
+}
+
+// ===================== NOTIFICATIONS =====================
+let notifTimer;
+function showNotif(msg, duration=2500) {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(notifTimer);
+  notifTimer = setTimeout(() => el.style.display='none', duration);
+}
+
+// ===================== END GAME =====================
+function endGame(win) {
+  gamePhase = 'end';
+  const screen = document.getElementById('end-screen');
+  screen.className = win ? 'win' : 'lose';
+  screen.style.display = 'flex';
+  document.getElementById('end-title').textContent = win ? 'VICTORY!' : 'DEFEATED';
+  document.getElementById('end-msg').textContent = win
+    ? `You have slain the Demon! The world is saved, BeastMan!\nBeasts slain: ${player.slain.length} | Powers: ${player.powers.length} | Gold: ${player.gold}`
+    : `The beasts of the world have won... for now.\nBeasts slain: ${player.slain.length} | Gold: ${player.gold}`;
+}
+
+// ===================== GAME LOOP =====================
+let raf;
+function gameLoop() {
+  if (gamePhase === 'map') drawMap();
+  raf = requestAnimationFrame(gameLoop);
+}
+
+function startGame() {
+  document.getElementById('title-screen').style.display = 'none';
+  buildTerrain();
+  initState();
+  setupCanvas();
+  updateHUD();
+  drawMap();
+  gameLoop();
+}
+</script>
+</body>
+</html>

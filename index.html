@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SILLY.GAMES</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --black: #0a0a0f;
+    --dark: #12121a;
+    --panel: #1a1a28;
+    --border: #2a2a40;
+    --cyan: #00f5ff;
+    --magenta: #ff00aa;
+    --yellow: #ffe600;
+    --green: #00ff88;
+    --white: #e8e8f0;
+    --dim: #6060a0;
+    --scan: rgba(0,0,0,0.12);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  html, body {
+    background: var(--black);
+    color: var(--white);
+    font-family: 'Press Start 2P', monospace;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* CRT scanline overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      var(--scan) 0px,
+      var(--scan) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    pointer-events: none;
+    z-index: 1000;
+  }
+
+  /* CRT vignette */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    text-align: center;
+    padding: 60px 20px 40px;
+    position: relative;
+  }
+
+  .logo {
+    font-size: clamp(18px, 5vw, 36px);
+    letter-spacing: 0.1em;
+    color: var(--cyan);
+    text-shadow:
+      0 0 10px var(--cyan),
+      0 0 30px rgba(0,245,255,0.5),
+      0 0 60px rgba(0,245,255,0.2);
+    animation: flicker 8s infinite;
+    line-height: 1.4;
+  }
+
+  .logo span {
+    color: var(--magenta);
+    text-shadow:
+      0 0 10px var(--magenta),
+      0 0 30px rgba(255,0,170,0.5),
+      0 0 60px rgba(255,0,170,0.2);
+  }
+
+  .tagline {
+    font-family: 'VT323', monospace;
+    font-size: clamp(16px, 3vw, 24px);
+    color: var(--dim);
+    margin-top: 20px;
+    letter-spacing: 0.15em;
+    animation: blink-cursor 1.2s step-end infinite;
+  }
+
+  .tagline::after {
+    content: '█';
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+
+  /* pixel divider */
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 40px auto;
+    max-width: 900px;
+    padding: 0 20px;
+  }
+  .divider-line {
+    flex: 1;
+    height: 2px;
+    background: repeating-linear-gradient(90deg, var(--border) 0px, var(--border) 4px, transparent 4px, transparent 8px);
+  }
+  .divider-icon {
+    font-size: 20px;
+    color: var(--yellow);
+    filter: drop-shadow(0 0 6px var(--yellow));
+  }
+
+  /* ===== MARQUEE ===== */
+  .marquee-wrap {
+    overflow: hidden;
+    border-top: 2px solid var(--border);
+    border-bottom: 2px solid var(--border);
+    padding: 10px 0;
+    margin-bottom: 60px;
+    background: var(--dark);
+  }
+  .marquee {
+    display: flex;
+    gap: 60px;
+    white-space: nowrap;
+    animation: scroll-left 20s linear infinite;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    color: var(--yellow);
+    letter-spacing: 0.1em;
+  }
+  .marquee span { color: var(--magenta); }
+  @keyframes scroll-left {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  /* ===== GAME GRID ===== */
+  .section-label {
+    font-size: 10px;
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    text-align: center;
+    margin-bottom: 40px;
+  }
+  .section-label em {
+    color: var(--green);
+    font-style: normal;
+    text-shadow: 0 0 8px var(--green);
+  }
+
+  .game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 32px;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 20px;
+  }
+
+  /* ===== GAME CARD ===== */
+  .game-card {
+    background: var(--panel);
+    border: 2px solid var(--border);
+    position: relative;
+    transition: transform 0.15s, border-color 0.15s;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+    overflow: hidden;
+  }
+
+  .game-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .game-card:hover {
+    transform: translate(-4px, -4px);
+    border-color: var(--cyan);
+    box-shadow:
+      4px 4px 0 var(--cyan),
+      0 0 30px rgba(0,245,255,0.15);
+  }
+
+  .game-card.magenta:hover {
+    border-color: var(--magenta);
+    box-shadow:
+      4px 4px 0 var(--magenta),
+      0 0 30px rgba(255,0,170,0.15);
+  }
+
+  /* pixel corner decorations */
+  .game-card::after {
+    content: '';
+    position: absolute;
+    top: -2px; right: -2px;
+    width: 16px; height: 16px;
+    border-top: 4px solid var(--cyan);
+    border-right: 4px solid var(--cyan);
+  }
+  .game-card.magenta::after {
+    border-color: var(--magenta);
+  }
+
+  .card-screen {
+    height: 200px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 64px;
+    position: relative;
+    overflow: hidden;
+    background: var(--dark);
+    border-bottom: 2px solid var(--border);
+  }
+
+  /* animated pixel background for tower defense */
+  .card-screen.td-bg {
+    background:
+      radial-gradient(ellipse at 30% 60%, rgba(0,255,136,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 30%, rgba(255,0,170,0.08) 0%, transparent 50%),
+      var(--dark);
+  }
+
+  /* animated pixel background for rpg */
+  .card-screen.rpg-bg {
+    background:
+      radial-gradient(ellipse at 40% 50%, rgba(0,245,255,0.08) 0%, transparent 50%),
+      radial-gradient(ellipse at 70% 70%, rgba(255,230,0,0.06) 0%, transparent 50%),
+      var(--dark);
+  }
+
+  .card-screen .pixel-art {
+    font-size: 72px;
+    filter: drop-shadow(0 0 12px rgba(255,255,255,0.3));
+    animation: float 3s ease-in-out infinite;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* mini pixel grid decoration */
+  .card-screen .pixel-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    background-size: 16px 16px;
+  }
+
+  .card-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    font-family: 'VT323', monospace;
+    font-size: 14px;
+    padding: 3px 8px;
+    border: 1px solid;
+    letter-spacing: 0.1em;
+  }
+
+  .badge-green {
+    color: var(--green);
+    border-color: var(--green);
+    background: rgba(0,255,136,0.1);
+    text-shadow: 0 0 6px var(--green);
+  }
+
+  .card-body {
+    padding: 24px;
+  }
+
+  .card-genre {
+    font-family: 'VT323', monospace;
+    font-size: 13px;
+    color: var(--dim);
+    letter-spacing: 0.2em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  .card-title {
+    font-size: clamp(11px, 2vw, 14px);
+    color: var(--white);
+    line-height: 1.6;
+    margin-bottom: 16px;
+    text-shadow: 0 0 8px rgba(232,232,240,0.3);
+  }
+
+  .card-title.cyan { color: var(--cyan); text-shadow: 0 0 8px rgba(0,245,255,0.4); }
+  .card-title.magenta { color: var(--magenta); text-shadow: 0 0 8px rgba(255,0,170,0.4); }
+
+  .card-desc {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    color: #8080a0;
+    line-height: 1.5;
+    margin-bottom: 20px;
+  }
+
+  .card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+
+  .tag {
+    font-family: 'VT323', monospace;
+    font-size: 13px;
+    padding: 3px 10px;
+    border: 1px solid var(--border);
+    color: var(--dim);
+    letter-spacing: 0.05em;
+  }
+
+  .card-play-btn {
+    display: block;
+    width: 100%;
+    padding: 14px;
+    text-align: center;
+    font-family: 'Press Start 2P', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    border: 2px solid;
+    background: transparent;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s;
+    text-decoration: none;
+  }
+
+  .btn-cyan {
+    color: var(--cyan);
+    border-color: var(--cyan);
+  }
+  .btn-cyan:hover {
+    background: var(--cyan);
+    color: var(--black);
+  }
+
+  .btn-magenta {
+    color: var(--magenta);
+    border-color: var(--magenta);
+  }
+  .btn-magenta:hover {
+    background: var(--magenta);
+    color: var(--black);
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    text-align: center;
+    padding: 60px 20px 80px;
+    margin-top: 80px;
+    border-top: 2px solid var(--border);
+  }
+
+  .footer-logo {
+    font-size: 10px;
+    color: var(--dim);
+    margin-bottom: 16px;
+  }
+
+  .footer-sub {
+    font-family: 'VT323', monospace;
+    font-size: 16px;
+    color: #404060;
+    letter-spacing: 0.1em;
+  }
+
+  .insert-coin {
+    display: inline-block;
+    font-family: 'VT323', monospace;
+    font-size: 20px;
+    color: var(--yellow);
+    letter-spacing: 0.15em;
+    margin-top: 32px;
+    animation: blink 1.5s step-end infinite;
+    text-shadow: 0 0 8px var(--yellow);
+  }
+
+  /* ===== ANIMATIONS ===== */
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+
+  @keyframes flicker {
+    0%, 92%, 94%, 96%, 100% { opacity: 1; }
+    93%, 95% { opacity: 0.85; }
+  }
+
+  /* ===== PIXEL STARS ===== */
+  .stars {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    overflow: hidden;
+  }
+  .star {
+    position: absolute;
+    width: 2px;
+    height: 2px;
+    background: white;
+    animation: twinkle var(--d) ease-in-out infinite;
+    opacity: 0;
+  }
+  @keyframes twinkle {
+    0%, 100% { opacity: 0; }
+    50% { opacity: var(--o); }
+  }
+
+  /* main content above stars */
+  header, .marquee-wrap, main, footer { position: relative; z-index: 1; }
+</style>
+</head>
+<body>
+
+<!-- pixel stars -->
+<div class="stars" id="stars"></div>
+
+<!-- HEADER -->
+<header>
+  <div class="logo">SILLY<span>.</span>GAMES</div>
+  <div class="tagline">HANDCRAFTED BROWSER GAMES&nbsp;</div>
+</header>
+
+<!-- MARQUEE -->
+<div class="marquee-wrap">
+  <div class="marquee">
+    <span>★</span> PIGS VS ROBOTS &nbsp;·&nbsp; BEASTMAN RPG &nbsp;·&nbsp; <span>★</span> PIGS VS ROBOTS &nbsp;·&nbsp; BEASTMAN RPG &nbsp;·&nbsp; <span>★</span> PIGS VS ROBOTS &nbsp;·&nbsp; BEASTMAN RPG &nbsp;·&nbsp; <span>★</span> PIGS VS ROBOTS &nbsp;·&nbsp; BEASTMAN RPG &nbsp;·&nbsp; <span>★</span> PIGS VS ROBOTS &nbsp;·&nbsp; BEASTMAN RPG &nbsp;·&nbsp;
+  </div>
+</div>
+
+<!-- MAIN -->
+<main>
+  <div class="section-label">— SELECT YOUR GAME — <em>2 TITLES AVAILABLE</em> —</div>
+
+  <div class="game-grid">
+
+    <!-- GAME 1: Pigs vs Robots -->
+    <a class="game-card magenta" href="games/pigs-vs-robots/index.html">
+      <div class="card-screen td-bg">
+        <div class="pixel-grid"></div>
+        <div class="pixel-art">🐷🤖</div>
+        <div class="card-badge badge-green">PLAYABLE</div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre">// TOWER DEFENSE</div>
+        <div class="card-title magenta">PIGS VS ROBOTS</div>
+        <div class="card-desc">Defend the barnyard! Deploy pig warriors and stop the robot invasion before they reach the farm.</div>
+        <div class="card-tags">
+          <span class="tag">STRATEGY</span>
+          <span class="tag">TOWER DEFENSE</span>
+          <span class="tag">SINGLE PLAYER</span>
+        </div>
+        <div class="card-play-btn btn-magenta">▶ PLAY NOW</div>
+      </div>
+    </a>
+
+    <!-- GAME 2: Beastman RPG -->
+    <a class="game-card" href="games/beastman-rpg/index.html">
+      <div class="card-screen rpg-bg">
+        <div class="pixel-grid"></div>
+        <div class="pixel-art">⚔️🐺</div>
+        <div class="card-badge badge-green">PLAYABLE</div>
+      </div>
+      <div class="card-body">
+        <div class="card-genre">// ROLE-PLAYING GAME</div>
+        <div class="card-title cyan">BEASTMAN RPG</div>
+        <div class="card-desc">Choose your beast class, battle monsters, level up, and uncover the secrets of the Beastlands.</div>
+        <div class="card-tags">
+          <span class="tag">RPG</span>
+          <span class="tag">COMBAT</span>
+          <span class="tag">SINGLE PLAYER</span>
+        </div>
+        <div class="card-play-btn btn-cyan">▶ PLAY NOW</div>
+      </div>
+    </a>
+
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">SILLY.GAMES</div>
+  <div class="footer-sub">ALL GAMES BUILT WITH CLAUDE · RUNS IN ANY BROWSER · NO INSTALL NEEDED</div>
+  <div class="insert-coin">— INSERT COIN TO CONTINUE —</div>
+</footer>
+
+<script>
+  // Generate pixel stars
+  const starsEl = document.getElementById('stars');
+  for (let i = 0; i < 80; i++) {
+    const s = document.createElement('div');
+    s.className = 'star';
+    s.style.left = Math.random() * 100 + '%';
+    s.style.top = Math.random() * 100 + '%';
+    s.style.setProperty('--d', (2 + Math.random() * 4) + 's');
+    s.style.setProperty('--o', (0.2 + Math.random() * 0.6).toFixed(2));
+    s.style.animationDelay = (Math.random() * 4) + 's';
+    starsEl.appendChild(s);
+  }
+</script>
+
+</body>
+</html>
